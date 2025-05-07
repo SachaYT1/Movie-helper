@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:movie_helper/models/movie.dart';
-import 'package:movie_helper/models/genre.dart';
-import 'package:movie_helper/providers/movie_provider.dart';
-import 'package:movie_helper/widgets/movie_card.dart';
-import 'package:movie_helper/screens/movie_details_screen.dart';
-import 'package:movie_helper/screens/search_screen.dart';
+import 'package:movie_helper/features/movies/domain/entities/movie.dart';
+import 'package:movie_helper/features/movies/presentation/providers/movie_provider.dart';
+import 'package:movie_helper/features/movies/presentation/widgets/movie_card.dart';
+import 'package:movie_helper/features/movies/presentation/screens/movie_details_screen.dart';
+import 'package:movie_helper/features/movies/presentation/screens/search_screen.dart';
 
 class RecommendationScreen extends StatefulWidget {
   const RecommendationScreen({Key? key}) : super(key: key);

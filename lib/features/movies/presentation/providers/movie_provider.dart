@@ -1,10 +1,15 @@
+// lib/features/movies/presentation/providers/movie_provider.dart
 import 'package:flutter/material.dart';
-import 'package:movie_helper/models/movie.dart';
-import 'package:movie_helper/models/genre.dart';
-import 'package:movie_helper/services/movie_service.dart';
+import 'package:movie_helper/features/movies/domain/entities/movie.dart';
+import 'package:movie_helper/features/movies/domain/entities/genre.dart';
+import 'package:movie_helper/features/movies/domain/usecases/get_recommendation_use_case.dart';
+import 'package:movie_helper/features/movies/domain/usecases/search_movie_use_case.dart';
+import 'package:movie_helper/features/movies/domain/usecases/get_genres_use_case.dart';
 
 class MovieProvider extends ChangeNotifier {
-  final MovieService _movieService = MovieService();
+  final SearchMoviesUseCase _searchMoviesUseCase;
+  final GetRecommendationsUseCase _getRecommendationsUseCase;
+  final GetGenresUseCase _getGenresUseCase;
 
   List<Movie> _recommendedMovies = [];
   List<Movie> _searchResults = [];
@@ -19,11 +24,19 @@ class MovieProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String get error => _error;
 
+  MovieProvider({
+    required SearchMoviesUseCase searchMoviesUseCase,
+    required GetRecommendationsUseCase getRecommendationsUseCase,
+    required GetGenresUseCase getGenresUseCase,
+  })  : _searchMoviesUseCase = searchMoviesUseCase,
+        _getRecommendationsUseCase = getRecommendationsUseCase,
+        _getGenresUseCase = getGenresUseCase;
+
   // Загрузка жанров
   Future<void> loadGenres() async {
     _setLoading(true);
     try {
-      final genresMap = await _movieService.getGenres();
+      final genresMap = await _getGenresUseCase.execute();
       _genres = genresMap.entries
           .map((entry) => Genre(id: entry.key, name: entry.value))
           .toList();
@@ -45,7 +58,7 @@ class MovieProvider extends ChangeNotifier {
 
     _setLoading(true);
     try {
-      _searchResults = await _movieService.searchMovies(query);
+      _searchResults = await _searchMoviesUseCase.execute(query);
       _setError('');
     } catch (e) {
       _setError('Ошибка при поиске фильмов: $e');
@@ -62,7 +75,7 @@ class MovieProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      _recommendedMovies = await _movieService.getRecommendations(
+      _recommendedMovies = await _getRecommendationsUseCase.execute(
         similarMovieIds: similarMovieIds,
         genres: genres,
         query: query,

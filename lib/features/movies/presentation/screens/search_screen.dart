@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:movie_helper/models/movie.dart';
-import 'package:movie_helper/providers/movie_provider.dart';
-import 'package:movie_helper/widgets/movie_card.dart';
-import 'package:movie_helper/screens/movie_details_screen.dart';
+import 'package:movie_helper/features/movies/presentation/providers/movie_provider.dart';
+import 'package:movie_helper/features/movies/presentation/widgets/movie_card.dart';
+import 'package:movie_helper/features/movies/presentation/screens/movie_details_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   final bool selectionMode; // Добавляем флаг режима выбора
