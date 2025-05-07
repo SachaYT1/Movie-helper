@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:movie_helper/models/movie.dart';
+import 'package:movie_helper/features/movies/domain/entities/movie.dart';
 
 class MovieDetailsScreen extends StatelessWidget {
   final Movie movie;
