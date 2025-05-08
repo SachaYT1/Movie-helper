@@ -43,7 +43,7 @@ class MovieRepositoryImpl implements MovieRepository {
 
       // Извлекаем жанр и год из деталей фильма
       final String genre = movieDetails['Genre']?.split(',')[0] ?? '';
-      final String year = movieDetails['Year']?.split('–')[0] ?? '';
+    // final String year = movieDetails['Year']?.split('–')[0] ?? '';
 
       // Ищем фильмы с таким же жанром
       final response = await remoteDataSource.searchMovies(genre);
