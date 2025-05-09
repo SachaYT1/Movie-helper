@@ -10,6 +10,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY AUTOINCREMENT,
         login TEXT UNIQUE,
+        email TEXT UNIQUE,
         password TEXT
     )
     """)
@@ -81,5 +82,35 @@ def init_db():
     conn.commit()
     conn.close()
 
+
+def add_email_column():
+    db_path = Path(__file__).parent / "movies.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Проверяем, существует ли уже колонка email
+    cursor.execute("PRAGMA table_info(users)")
+    columns = cursor.fetchall()
+    column_names = [column[1] for column in columns]
+    
+    if 'email' not in column_names:
+        # Добавляем колонку email, если её ещё нет
+        cursor.execute("ALTER TABLE users ADD COLUMN email TEXT UNIQUE")
+        print("Колонка email успешно добавлена")
+    else:
+        print("Колонка email уже существует")
+    
+    conn.commit()
+    conn.close()
+
+
+def drop_users_table():
+    db_path = Path(__file__).parent / "movies.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute("DROP TABLE IF EXISTS users")
+    conn.commit()
+    conn.close()
+
+
 if __name__ == "__main__":
-    init_db()
+   init_db()

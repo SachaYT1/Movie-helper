@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/custom_text_field.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -16,6 +17,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   bool _isEmailSent = false;
+  bool _isLoading = false;
+  String? _errorText;
 
   @override
   void initState() {
@@ -40,11 +43,41 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
     super.dispose();
   }
 
-  void _resetPassword() {
-    // TODO: Implement actual password reset logic
+  void _resetPassword() async {
+    // Basic validation
+    if (_emailController.text.isEmpty) {
+      setState(() {
+        _errorText = 'Please enter your email';
+      });
+      return;
+    }
+
     setState(() {
-      _isEmailSent = true;
+      _isLoading = true;
+      _errorText = null;
     });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final success = await authProvider.resetPassword(_emailController.text);
+
+      if (success) {
+        setState(() {
+          _isEmailSent = true;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorText = authProvider.errorMessage ?? 'Password reset failed';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorText = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -123,6 +156,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                           padding: const EdgeInsets.all(20.0),
                           child: Column(
                             children: [
+                              if (_errorText != null)
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  margin: const EdgeInsets.only(bottom: 20),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppColors.errorColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: AppColors.errorColor,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _errorText!,
+                                    style: TextStyle(
+                                      color: AppColors.errorColor,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
                               CustomTextField(
                                 hint: 'Email',
                                 icon: Icons.email,
@@ -134,17 +188,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                               const SizedBox(height: 30),
                               // Send reset link button
                               ElevatedButton(
-                                onPressed: _resetPassword,
+                                onPressed: _isLoading ? null : _resetPassword,
                                 style: ElevatedButton.styleFrom(
                                   minimumSize: const Size.fromHeight(55),
                                 ),
-                                child: const Text(
-                                  'SEND RESET LINK',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'SEND RESET LINK',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                               ),
                             ],
                           ),
