@@ -15,8 +15,6 @@ class RecommendationScreen extends StatefulWidget {
 
 class _RecommendationScreenState extends State<RecommendationScreen> {
   final TextEditingController _promptController = TextEditingController();
-  final List<String> _selectedGenres = [];
-  final List<Movie> _similarMovies = [];
   bool _isLoading = false;
 
   @override
@@ -35,8 +33,10 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
   }
 
   void _getRecommendations() {
-    if (_selectedGenres.isEmpty &&
-        _similarMovies.isEmpty &&
+    final movieProvider = Provider.of<MovieProvider>(context, listen: false);
+
+    if (movieProvider.selectedGenres.isEmpty &&
+        movieProvider.similarMovies.isEmpty &&
         _promptController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -51,40 +51,14 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
       _isLoading = true;
     });
 
-    Provider.of<MovieProvider>(context, listen: false)
+    movieProvider
         .getRecommendations(
-      similarMovieIds: _similarMovies.map((m) => m.imdbId).toList(),
-      genres: _selectedGenres,
       query: _promptController.text.trim(),
     )
         .then((_) {
       setState(() {
         _isLoading = false;
       });
-    });
-  }
-
-  void _addSimilarMovie(Movie movie) {
-    if (!_similarMovies.any((m) => m.imdbId == movie.imdbId)) {
-      setState(() {
-        _similarMovies.add(movie);
-      });
-    }
-  }
-
-  void _removeSimilarMovie(Movie movie) {
-    setState(() {
-      _similarMovies.removeWhere((m) => m.imdbId == movie.imdbId);
-    });
-  }
-
-  void _toggleGenre(String genre) {
-    setState(() {
-      if (_selectedGenres.contains(genre)) {
-        _selectedGenres.remove(genre);
-      } else {
-        _selectedGenres.add(genre);
-      }
     });
   }
 
@@ -133,32 +107,35 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                 const SizedBox(height: 16),
 
                 // Список выбранных похожих фильмов
-                if (_similarMovies.isNotEmpty)
+                if (movieProvider.similarMovies.isNotEmpty)
                   SizedBox(
-                    height: 260,
+                    height: 250,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      itemCount: _similarMovies.length,
+                      itemCount: movieProvider.similarMovies.length,
                       itemBuilder: (context, index) {
-                        final movie = _similarMovies[index];
+                        final movie = movieProvider.similarMovies[index];
                         return Padding(
                           padding: const EdgeInsets.only(right: 12.0),
                           child: Stack(
                             children: [
                               SizedBox(
-                                height: 260,
-                                width: 120,
-                                child: MovieCard(
-                                  movie: movie,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            MovieDetailsScreen(movie: movie),
-                                      ),
-                                    );
-                                  },
+                                width: 130,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: MovieCard(
+                                    movie: movie,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              MovieDetailsScreen(movie: movie),
+                                        ),
+                                      );
+                                    },
+                                    compact: true,
+                                  ),
                                 ),
                               ),
                               Positioned(
@@ -173,7 +150,10 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                                       size: 16,
                                       color: Colors.white,
                                     ),
-                                    onPressed: () => _removeSimilarMovie(movie),
+                                    onPressed: () =>
+                                        movieProvider.removeSimilarMovie(movie),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
                                   ),
                                 ),
                               ),
@@ -221,7 +201,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                         ),
                       ).then((value) {
                         if (value != null && value is Movie) {
-                          _addSimilarMovie(value);
+                          movieProvider.addSimilarMovie(value);
                         }
                       });
                     },
@@ -254,12 +234,13 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: movieProvider.genres.map((genre) {
-                    final isSelected = _selectedGenres.contains(genre.name);
+                    final isSelected =
+                        movieProvider.selectedGenres.contains(genre.name);
                     return FilterChip(
                       label: Text(genre.name),
                       selected: isSelected,
-                      onSelected: (_) => _toggleGenre(genre.name),
-                      backgroundColor: Colors.grey[200],
+                      onSelected: (_) => movieProvider.toggleGenre(genre.name),
+                      // backgroundColor: Colors.grey[200],
                       selectedColor: Theme.of(context)
                           .colorScheme
                           .primary
@@ -344,24 +325,27 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.5,
-                          crossAxisSpacing: 16,
+                          childAspectRatio: 0.45,
+                          crossAxisSpacing: 10,
                           mainAxisSpacing: 16,
                         ),
                         itemCount: movieProvider.recommendedMovies.length,
                         itemBuilder: (context, index) {
                           final movie = movieProvider.recommendedMovies[index];
-                          return MovieCard(
-                            movie: movie,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      MovieDetailsScreen(movie: movie),
-                                ),
-                              );
-                            },
+                          return SizedBox(
+                            height: 280,
+                            child: MovieCard(
+                              movie: movie,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        MovieDetailsScreen(movie: movie),
+                                  ),
+                                );
+                              },
+                            ),
                           );
                         },
                       ),
