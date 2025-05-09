@@ -135,7 +135,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                 // Список выбранных похожих фильмов
                 if (_similarMovies.isNotEmpty)
                   SizedBox(
-                    height: 260,
+                    height: 250,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: _similarMovies.length,
@@ -146,19 +146,22 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                           child: Stack(
                             children: [
                               SizedBox(
-                                height: 260,
-                                width: 120,
-                                child: MovieCard(
-                                  movie: movie,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            MovieDetailsScreen(movie: movie),
-                                      ),
-                                    );
-                                  },
+                                width: 130,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: MovieCard(
+                                    movie: movie,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              MovieDetailsScreen(movie: movie),
+                                        ),
+                                      );
+                                    },
+                                    compact: true,
+                                  ),
                                 ),
                               ),
                               Positioned(
@@ -174,6 +177,8 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                                       color: Colors.white,
                                     ),
                                     onPressed: () => _removeSimilarMovie(movie),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
                                   ),
                                 ),
                               ),
@@ -259,7 +264,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                       label: Text(genre.name),
                       selected: isSelected,
                       onSelected: (_) => _toggleGenre(genre.name),
-                      backgroundColor: Colors.grey[200],
+                      // backgroundColor: Colors.grey[200],
                       selectedColor: Theme.of(context)
                           .colorScheme
                           .primary
@@ -344,24 +349,27 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.5,
-                          crossAxisSpacing: 16,
+                          childAspectRatio: 0.45,
+                          crossAxisSpacing: 10,
                           mainAxisSpacing: 16,
                         ),
                         itemCount: movieProvider.recommendedMovies.length,
                         itemBuilder: (context, index) {
                           final movie = movieProvider.recommendedMovies[index];
-                          return MovieCard(
-                            movie: movie,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      MovieDetailsScreen(movie: movie),
-                                ),
-                              );
-                            },
+                          return SizedBox(
+                            height: 280,
+                            child: MovieCard(
+                              movie: movie,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        MovieDetailsScreen(movie: movie),
+                                  ),
+                                );
+                              },
+                            ),
                           );
                         },
                       ),
