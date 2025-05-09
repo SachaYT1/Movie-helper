@@ -95,12 +95,9 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
         title: const Text('Рекомендации фильмов'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: const Icon(Icons.person),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SearchScreen()),
-              );
+              Navigator.pushNamed(context, '/profile');
             },
           ),
         ],
@@ -137,7 +134,6 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
 
                 // Список выбранных похожих фильмов
                 if (_similarMovies.isNotEmpty)
-                
                   SizedBox(
                     height: 260,
                     child: ListView.builder(

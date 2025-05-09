@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movie_helper/features/movies/presentation/screens/recommendation_screen.dart';
 import 'package:movie_helper/features/movies/presentation/screens/search_screen.dart';
+import 'package:movie_helper/features/auth/presentation/screens/profile_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,6 +16,7 @@ class _HomePageState extends State<HomePage> {
   static const List<Widget> _widgetOptions = <Widget>[
     RecommendationScreen(),
     SearchScreen(),
+    ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -38,6 +40,10 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.search),
             label: 'Поиск',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Профиль',
           ),
         ],
         currentIndex: _selectedIndex,

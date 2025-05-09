@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:movie_helper/features/auth/presentation/screens/profile_screen.dart';
+import 'package:movie_helper/features/movies/presentation/screens/recommendation_screen.dart';
+import 'package:movie_helper/features/movies/presentation/screens/search_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/registration_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
@@ -9,6 +12,9 @@ class AppRoutes {
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
   static const String home = '/home';
+  static const String profile = '/profile';
+  static const String search = '/search';
+  static const String recommendations = '/recommendations';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -30,6 +36,21 @@ class AppRoutes {
       case home:
         return _buildPageRouteWithTransition(
           const HomePage(),
+          settings,
+        );
+      case profile:
+        return _buildPageRouteWithTransition(
+          const ProfileScreen(),
+          settings,
+        );
+      case search:
+        return _buildPageRouteWithTransition(
+          const SearchScreen(),
+          settings,
+        );
+      case recommendations:
+        return _buildPageRouteWithTransition(
+          const RecommendationScreen(),
           settings,
         );
       default:
