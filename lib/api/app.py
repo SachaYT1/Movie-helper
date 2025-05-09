@@ -3,9 +3,12 @@ import sqlite3
 from pathlib import Path
 
 app = Flask(__name__)
-app.config['DATABASE'] = Path(__file__).parent.parent / "database" / "movies.db"
+app.config['DATABASE'] = Path(__file__).parent.parent.parent / "backend" / "database" / "movies.db"
 
+
+print(app.config['DATABASE'])
 def get_db():
+    print(app.config['DATABASE'])
     conn = sqlite3.connect(app.config['DATABASE'])
     conn.row_factory = sqlite3.Row
     return conn
@@ -25,12 +28,13 @@ def create_user():
     
     login = data['login']
     password = data['password']
+    email = data['email']
     
     try:
         conn = get_db()
         conn.execute(
-            "INSERT INTO users (login, password) VALUES (?, ?)",
-            (login, password)
+            "INSERT INTO users (login, password, email) VALUES (?, ?, ?)",
+            (login, password, email)
         )
         conn.commit()
         return jsonify({'message': 'User created successfully'}), 201
@@ -39,6 +43,76 @@ def create_user():
     finally:
         if 'conn' in locals():
             conn.close()
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    
+    if not data or 'login' not in data or 'password' not in data:
+        return jsonify({'error': 'Login and password are required'}), 400
+    
+    login = data['login']
+    password = data['password']
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT user_id, login, email FROM users WHERE login = ? AND password = ?",
+            (login, password)
+        )
+        user = cursor.fetchone()
+        
+        if user:
+            return jsonify({
+                'message': 'Login successful',
+                'user_id': user['user_id'],
+                'login': user['login'],
+                'email': user['email']
+            }), 200
+        else:
+            return jsonify({'error': 'Invalid login or password'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    
+    if not data or 'email' not in data:
+        return jsonify({'error': 'Email is required'}), 400
+    
+    email = data['email']
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT password FROM users WHERE email = ?",
+            (email,)
+        )
+        user = cursor.fetchone()
+        
+        if user:
+            # В реальном приложении здесь должна быть отправка email
+            # с инструкциями по сбросу пароля, но для демонстрации
+            # просто возвращаем пароль
+            return jsonify({
+                'message': 'Password retrieved successfully',
+                'password': user['password']
+            }), 200
+        else:
+            return jsonify({'error': 'User with this email not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 
 # Эндпоинты для похожих фильмов
 @app.route('/api/users/<int:user_id>/similar_movies', methods=['POST'])

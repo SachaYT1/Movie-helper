@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/custom_text_field.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -19,6 +21,8 @@ class _RegistrationScreenState extends State<RegistrationScreen>
       TextEditingController();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  bool _isLoading = false;
+  String? _errorText;
 
   @override
   void initState() {
@@ -44,6 +48,62 @@ class _RegistrationScreenState extends State<RegistrationScreen>
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _register() async {
+    // First perform basic validation
+    if (_usernameController.text.isEmpty ||
+        _emailController.text.isEmpty ||
+        _passwordController.text.isEmpty ||
+        _confirmPasswordController.text.isEmpty) {
+      setState(() {
+        _errorText = 'Please fill in all fields';
+      });
+      return;
+    }
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() {
+        _errorText = 'Passwords do not match';
+      });
+      return;
+    }
+
+    if (_passwordController.text.length < 6) {
+      setState(() {
+        _errorText = 'Password must be at least 6 characters';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final success = await authProvider.register(
+        _usernameController.text,
+        _emailController.text,
+        _passwordController.text,
+      );
+
+      if (success) {
+        // Navigate to home page
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        setState(() {
+          _errorText = authProvider.errorMessage ?? 'Registration failed';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorText = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -96,6 +156,26 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                         padding: const EdgeInsets.all(20.0),
                         child: Column(
                           children: [
+                            if (_errorText != null)
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                margin: const EdgeInsets.only(bottom: 20),
+                                decoration: BoxDecoration(
+                                  color: AppColors.errorColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AppColors.errorColor,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  _errorText!,
+                                  style: TextStyle(
+                                    color: AppColors.errorColor,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
                             CustomTextField(
                               hint: 'Username',
                               icon: Icons.person,
@@ -125,30 +205,31 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                               controller: _confirmPasswordController,
                               isPassword: true,
                               textInputAction: TextInputAction.done,
-                              onSubmitted: (_) {
-                                // Handle registration on submit
-                                Navigator.pushReplacementNamed(
-                                    context, '/home');
-                              },
+                              onSubmitted: (_) => _register(),
                             ),
                             const SizedBox(height: 30),
                             // Register button
                             ElevatedButton(
-                              onPressed: () {
-                                // Navigate to home page
-                                Navigator.pushReplacementNamed(
-                                    context, '/home');
-                              },
+                              onPressed: _isLoading ? null : _register,
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size.fromHeight(55),
                               ),
-                              child: const Text(
-                                'REGISTER',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'REGISTER',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ],
                         ),
