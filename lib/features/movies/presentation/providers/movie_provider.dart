@@ -14,6 +14,8 @@ class MovieProvider extends ChangeNotifier {
   List<Movie> _recommendedMovies = [];
   List<Movie> _searchResults = [];
   List<Genre> _genres = [];
+  List<Movie> _similarMovies = [];
+  List<String> _selectedGenres = [];
   bool _isLoading = false;
   String _error = '';
 
@@ -21,6 +23,8 @@ class MovieProvider extends ChangeNotifier {
   List<Movie> get recommendedMovies => _recommendedMovies;
   List<Movie> get searchResults => _searchResults;
   List<Genre> get genres => _genres;
+  List<Movie> get similarMovies => _similarMovies;
+  List<String> get selectedGenres => _selectedGenres;
   bool get isLoading => _isLoading;
   String get error => _error;
 
@@ -76,8 +80,9 @@ class MovieProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       _recommendedMovies = await _getRecommendationsUseCase.execute(
-        similarMovieIds: similarMovieIds,
-        genres: genres,
+        similarMovieIds:
+            similarMovieIds ?? _similarMovies.map((m) => m.imdbId).toList(),
+        genres: genres ?? _selectedGenres,
         query: query,
       );
       _setError('');
@@ -86,6 +91,39 @@ class MovieProvider extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  // Методы для управления похожими фильмами
+  void addSimilarMovie(Movie movie) {
+    if (!_similarMovies.any((m) => m.imdbId == movie.imdbId)) {
+      _similarMovies.add(movie);
+      notifyListeners();
+    }
+  }
+
+  void removeSimilarMovie(Movie movie) {
+    _similarMovies.removeWhere((m) => m.imdbId == movie.imdbId);
+    notifyListeners();
+  }
+
+  void clearSimilarMovies() {
+    _similarMovies.clear();
+    notifyListeners();
+  }
+
+  // Методы для управления выбранными жанрами
+  void toggleGenre(String genre) {
+    if (_selectedGenres.contains(genre)) {
+      _selectedGenres.remove(genre);
+    } else {
+      _selectedGenres.add(genre);
+    }
+    notifyListeners();
+  }
+
+  void clearSelectedGenres() {
+    _selectedGenres.clear();
+    notifyListeners();
   }
 
   // Вспомогательные методы
