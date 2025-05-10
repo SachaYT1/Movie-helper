@@ -1,44 +1,90 @@
 import unittest
 import sqlite3
+import json
 from pathlib import Path
 from app import app
 
-class TestUserAPI(unittest.TestCase):
+class BaseTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # Настраиваем тестовое приложение
+        # Настройка тестового приложения
         app.config['TESTING'] = True
         app.config['DATABASE'] = Path(__file__).parent / "test_movies.db"
         cls.client = app.test_client()
-
-        # Создаем тестовую БД
-        conn = sqlite3.connect(app.config['DATABASE'])
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                login TEXT UNIQUE,
-                password TEXT
-            )
-        """)
-        conn.commit()
-        conn.close()
+        
+        # Инициализация тестовой БД
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    login TEXT UNIQUE,
+                    email TEXT UNIQUE,
+                    password TEXT
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS similar_movies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    date_x TEXT,
+                    score REAL,
+                    genre TEXT,
+                    overview TEXT,
+                    crew TEXT,
+                    orig_title TEXT,
+                    status TEXT,
+                    orig_lang TEXT,
+                    budget_x REAL,
+                    revenue REAL,
+                    country TEXT
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS movies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    date_x TEXT,
+                    score REAL,
+                    genre TEXT,
+                    overview TEXT,
+                    crew TEXT,
+                    orig_title TEXT,
+                    status TEXT,
+                    orig_lang TEXT,
+                    budget_x REAL,
+                    revenue REAL,
+                    country TEXT
+                )
+            """)
+            conn.commit()
+        finally:
+            if conn:
+                conn.close()
 
     @classmethod
     def tearDownClass(cls):
-        # Удаляем тестовую БД после всех тестов
+        # Удаление тестовой БД
         if Path(app.config['DATABASE']).exists():
             Path(app.config['DATABASE']).unlink()
 
+class TestUserAPI(BaseTestCase):
     def setUp(self):
-        # Очищаем таблицу перед каждым тестом
-        conn = sqlite3.connect(app.config['DATABASE'])
-        conn.execute("DELETE FROM users")
-        conn.commit()
-        conn.close()
+        # Очистка таблицы users перед каждым тестом
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
+            conn.execute("DELETE FROM users")
+            conn.commit()
+        finally:
+            if conn:
+                conn.close()
 
     def test_create_user_success(self):
         """Тест успешного создания пользователя"""
-        test_data = {'login': 'unique_user_1', 'password': 'testpass'}
+        test_data = {'login': 'unique_user_1', 'password': 'testpass', 'email': 'user1@gmail.ru'}
         response = self.client.post('/api/users', json=test_data)
         
         self.assertEqual(response.status_code, 201)
@@ -58,77 +104,41 @@ class TestUserAPI(unittest.TestCase):
 
     def test_create_user_duplicate(self):
         """Тест создания дубликата пользователя"""
-        test_data = {'login': 'duplicate_test', 'password': 'mypassword'}
+        test_data = {'login': 'duplicate_test', 'password': 'mypassword', 'email': 'user1@gmail.ru'}
         
         # Сначала создаем пользователя
-        conn = sqlite3.connect(app.config['DATABASE'])
-        conn.execute("INSERT INTO users (login, password) VALUES (?, ?)", 
-                    (test_data['login'], test_data['password']))
-        conn.commit()
-        conn.close()
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
+            conn.execute("INSERT INTO users (login, password, email) VALUES (?, ?, ?)", 
+                        (test_data['login'], test_data['password'], test_data['email']))
+            conn.commit()
+        finally:
+            if conn:
+                conn.close()
         
         # Пытаемся создать такого же пользователя
         response = self.client.post('/api/users', json=test_data)
         self.assertEqual(response.status_code, 409)
         self.assertIn('error', response.get_json())
 
-class TestSimilarMoviesAPI(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        # Настраиваем тестовое приложение
-        app.config['TESTING'] = True
-        app.config['DATABASE'] = Path(__file__).parent / "test_movies.db"
-        cls.client = app.test_client()
-
-        # Создаем тестовую БД со всеми таблицами
-        conn = sqlite3.connect(app.config['DATABASE'])
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                login TEXT UNIQUE,
-                password TEXT
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS similar_movies (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                date_x TEXT,
-                score REAL,
-                genre TEXT,
-                overview TEXT,
-                crew TEXT,
-                orig_title TEXT,
-                status TEXT,
-                orig_lang TEXT,
-                budget_x REAL,
-                revenue REAL,
-                country TEXT
-            )
-        """)
-        conn.commit()
-        conn.close()
-
-        # Создаем тестового пользователя
-        with sqlite3.connect(app.config['DATABASE']) as conn:
-            conn.execute(
-                "INSERT INTO users (login, password) VALUES (?, ?)",
-                ('test_user', 'testpass')
-            )
-            conn.commit()
-
-    @classmethod
-    def tearDownClass(cls):
-        # Удаляем тестовую БД после всех тестов
-        if Path(app.config['DATABASE']).exists():
-            Path(app.config['DATABASE']).unlink()
-
+class TestSimilarMoviesAPI(BaseTestCase):
     def setUp(self):
-        # Очищаем таблицу похожих фильмов перед каждым тестом
-        with sqlite3.connect(app.config['DATABASE']) as conn:
+        # Очистка таблиц и создание тестового пользователя
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
             conn.execute("DELETE FROM similar_movies")
+            conn.execute("DELETE FROM users")
+            # Явно создаем пользователя с ID=1
+            conn.execute(
+                "INSERT INTO users (user_id, login, password, email) VALUES (?, ?, ?, ?)",
+                (1, 'test_user', 'testpass', 'test_user@gmail.com')
+            )
             conn.commit()
+        finally:
+            if conn:
+                conn.close()
 
     def test_add_similar_movie_success(self):
         """Тест успешного добавления похожего фильма"""
@@ -140,12 +150,29 @@ class TestSimilarMoviesAPI(unittest.TestCase):
             "overview": "A thief who steals corporate secrets..."
         }
         
+        # Проверяем существование пользователя перед тестом
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM users WHERE user_id = 1")
+            result = cursor.fetchone()
+            self.assertIsNotNone(result, "Test user should exist")
+        finally:
+            if conn:
+                conn.close()
+        
         response = self.client.post(
             '/api/users/1/similar_movies',
-            json=test_movie
+            json=test_movie,
+            headers={'Content-Type': 'application/json'}
         )
         
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(
+            response.status_code, 
+            201,
+            f"Expected 201, got {response.status_code}. Response: {response.get_json()}"
+        )
         self.assertEqual(
             response.get_json(),
             {'message': 'Similar movie added successfully'}
@@ -161,10 +188,7 @@ class TestSimilarMoviesAPI(unittest.TestCase):
             "genre": "Sci-Fi, Action"
         }
         
-        response = self.client.post(
-            '/api/users/1/similar_movies',
-            json=test_movie
-        )
+        response = self.client.post('/api/users/1/similar_movies', json=test_movie)
         
         self.assertEqual(response.status_code, 400)
         self.assertIn('error', response.get_json())
@@ -189,7 +213,9 @@ class TestSimilarMoviesAPI(unittest.TestCase):
             }
         ]
         
-        with sqlite3.connect(app.config['DATABASE']) as conn:
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
             for movie in test_movies:
                 conn.execute(
                     """INSERT INTO similar_movies 
@@ -199,6 +225,9 @@ class TestSimilarMoviesAPI(unittest.TestCase):
                      movie['score'], movie['genre'], movie['overview'])
                 )
             conn.commit()
+        finally:
+            if conn:
+                conn.close()
         
         # Получаем список фильмов
         response = self.client.get('/api/users/1/similar_movies')
@@ -212,7 +241,10 @@ class TestSimilarMoviesAPI(unittest.TestCase):
     def test_delete_similar_movie(self):
         """Тест удаления похожего фильма"""
         # Сначала добавляем тестовый фильм
-        with sqlite3.connect(app.config['DATABASE']) as conn:
+        movie_id = None
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
             cursor = conn.execute(
                 """INSERT INTO similar_movies 
                 (user_id, title, date_x, score, genre, overview) 
@@ -222,11 +254,12 @@ class TestSimilarMoviesAPI(unittest.TestCase):
             )
             movie_id = cursor.lastrowid
             conn.commit()
+        finally:
+            if conn:
+                conn.close()
         
         # Удаляем фильм
-        response = self.client.delete(
-            f'/api/users/1/similar_movies/{movie_id}'
-        )
+        response = self.client.delete(f'/api/users/1/similar_movies/{movie_id}')
         
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -235,18 +268,21 @@ class TestSimilarMoviesAPI(unittest.TestCase):
         )
         
         # Проверяем, что фильма больше нет
-        with sqlite3.connect(app.config['DATABASE']) as conn:
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
             cursor = conn.execute(
                 "SELECT 1 FROM similar_movies WHERE id = ?",
                 (movie_id,)
             )
             self.assertIsNone(cursor.fetchone())
+        finally:
+            if conn:
+                conn.close()
 
     def test_delete_nonexistent_movie(self):
         """Тест удаления несуществующего фильма"""
-        response = self.client.delete(
-            '/api/users/1/similar_movies/999'
-        )
+        response = self.client.delete('/api/users/1/similar_movies/999')
         
         self.assertEqual(response.status_code, 404)
         self.assertIn('error', response.get_json())
@@ -262,26 +298,172 @@ class TestSimilarMoviesAPI(unittest.TestCase):
         }
         
         # Проверяем количество фильмов до запроса
-        with sqlite3.connect(app.config['DATABASE']) as conn:
+        count_before = 0
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM similar_movies")
             count_before = cursor.fetchone()[0]
+        finally:
+            if conn:
+                conn.close()
         
-        response = self.client.post(
-            '/api/users/999/similar_movies',
-            json=test_movie
-        )
+        response = self.client.post('/api/users/999/similar_movies', json=test_movie)
         
         self.assertEqual(response.status_code, 404)
         self.assertIn('error', response.get_json())
         
         # Проверяем, что количество фильмов не изменилось
-        with sqlite3.connect(app.config['DATABASE']) as conn:
+        count_after = 0
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM similar_movies")
             count_after = cursor.fetchone()[0]
+        finally:
+            if conn:
+                conn.close()
         
         self.assertEqual(count_before, count_after)
+
+class TestMLRecommendations(BaseTestCase):
+    def setUp(self):
+        # Очистка таблиц и добавление тестовых данных
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
+            conn.execute("DELETE FROM movies")
+            conn.execute("DELETE FROM similar_movies")
+            conn.execute("DELETE FROM users")
+            
+            # Добавляем тестового пользователя
+            conn.execute(
+                "INSERT INTO users (login, password) VALUES (?, ?)",
+                ("test_user", "testpass")
+            )
+            
+            # Добавляем тестовые фильмы с актерами в crew поле (JSON)
+            conn.executemany(
+                """INSERT INTO movies (title, genre, overview, score, crew) 
+                VALUES (?, ?, ?, ?, ?)""",
+                [
+                    ("The Matrix", "Sci-Fi, Action", 
+                     "A computer hacker learns about reality", 8.7,
+                     json.dumps({"Actors": "Keanu Reeves, Laurence Fishburne, Carrie-Anne Moss"})),
+                    ("Inception", "Sci-Fi", 
+                     "A thief steals secrets through dreams", 8.8,
+                     json.dumps({"Actors": "Leonardo DiCaprio, Joseph Gordon-Levitt, Ellen Page"})),
+                    ("Interstellar", "Sci-Fi", 
+                     "Space travel to save humanity", 8.6,
+                     json.dumps({"Actors": "Matthew McConaughey, Anne Hathaway, Jessica Chastain"}))
+                ]
+            )
+            
+            # Добавляем похожие фильмы
+            conn.execute(
+                """INSERT INTO similar_movies 
+                (user_id, title, overview) VALUES 
+                (1, 'Blade Runner', 'A story about replicants')"""
+            )
+            conn.commit()
+        finally:
+            if conn:
+                conn.close()
+
+    def test_ml_recommendations_with_actors(self):
+        """Test recommendation system with actor matching from crew field"""
+        # Добавляем фильм с конкретными актерами в тестовую базу
+        conn = None
+        try:
+            conn = sqlite3.connect(app.config['DATABASE'])
+            conn.execute(
+                """INSERT INTO movies (title, genre, overview, score, crew) 
+                VALUES (?, ?, ?, ?, ?)""",
+                ("Gravity", "Sci-Fi, Drama", 
+                 "A story about space survival",
+                 7.7,
+                 json.dumps({"Actors": "Sandra Bullock, George Clooney"}))
+            )
+            conn.commit()
+        finally:
+            if conn:
+                conn.close()
+
+        test_data = {
+            "user_id": 1,
+            "description": "A space movie with Sandra Bullock",
+            "genres": "Sci-Fi"
+        }
+        
+        response = self.client.post('/api/ml/recommendations', json=test_data)
+        
+        self.assertEqual(response.status_code, 200, "Should return status code 200")
+        data = response.get_json()
+        self.assertIsInstance(data, list, "Response should be a list")
+        
+        if len(data) > 0:
+            gravity_found = any(movie['title'] == 'Gravity' for movie in data)
+            self.assertTrue(gravity_found, "Movie with specified actors should be in results")
+            
+            if gravity_found:
+                gravity_movie = next(movie for movie in data if movie['title'] == 'Gravity')
+                self.assertIn('matched_actors', gravity_movie, "Should have matched_actors field")
+                self.assertIsInstance(gravity_movie['matched_actors'], list, 
+                                    "matched_actors should be a list")
+                self.assertGreater(len(gravity_movie['matched_actors']), 0,
+                                "Should have at least one matched actor")
+                
+                self.assertIn('Sandra Bullock', gravity_movie['matched_actors'],
+                            "Sandra Bullock should be in matched actors")
+
+    def test_actor_extraction_from_crew(self):
+        """Test that actors are correctly extracted from crew JSON"""
+        test_data = {
+            "user_id": 1,
+            "description": "A movie with Keanu Reeves",
+            "genres": "Sci-Fi"
+        }
+        
+        response = self.client.post('/api/ml/recommendations', json=test_data)
+        
+        self.assertEqual(response.status_code, 200, "Should return status code 200")
+        data = response.get_json()
+        
+        if len(data) > 0:
+            matrix_found = any(movie['title'] == 'The Matrix' for movie in data)
+            self.assertTrue(matrix_found, "The Matrix should be in results")
+            
+            if matrix_found:
+                matrix_movie = next(movie for movie in data if movie['title'] == 'The Matrix')
+                self.assertIn('matched_actors', matrix_movie)
+                self.assertIn('Keanu Reeves', matrix_movie['matched_actors'],
+                            "Keanu Reeves should be matched from crew data")
+
+    def test_multiple_actor_matching(self):
+        """Test matching with multiple actors in request"""
+        test_data = {
+            "user_id": 1,
+            "description": "A movie with Leonardo DiCaprio and Ellen Page",
+            "genres": "Sci-Fi"
+        }
+        
+        response = self.client.post('/api/ml/recommendations', json=test_data)
+        
+        self.assertEqual(response.status_code, 200, "Should return status code 200")
+        data = response.get_json()
+        
+        if len(data) > 0:
+            inception_found = any(movie['title'] == 'Inception' for movie in data)
+            self.assertTrue(inception_found, "Inception should be in results")
+            
+            if inception_found:
+                inception_movie = next(movie for movie in data if movie['title'] == 'Inception')
+                self.assertIn('matched_actors', inception_movie)
+                matched = set(inception_movie['matched_actors'])
+                self.assertTrue({'Leonardo DiCaprio', 'Ellen Page'}.issubset(matched),
+                              "Both actors should be matched")
 
 if __name__ == '__main__':
     unittest.main()

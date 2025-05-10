@@ -10,4 +10,9 @@ abstract class MovieRepository {
     String? query,
   });
   Future<Map<int, String>> getGenres();
+
+  // New methods for user-specific similar movies operations
+  Future<List<Movie>> getUserSimilarMovies(int userId);
+  Future<void> addSimilarMovie(int userId, Movie movie);
+  Future<void> removeSimilarMovie(int userId, int movieId);
 }
