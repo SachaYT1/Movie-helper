@@ -1,9 +1,166 @@
 from flask import Flask, request, jsonify
 import sqlite3
+import re
 from pathlib import Path
+from sentence_transformers import SentenceTransformer
+import numpy as np
+import json
+from sklearn.metrics.pairwise import cosine_similarity
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
 app = Flask(__name__)
 app.config['DATABASE'] = Path(__file__).parent.parent / "database" / "movies.db"
+
+def extract_actors(text):
+    """
+    Извлекает имена актеров из текста, корректно разделяя их по 'and' и запятым.
+    Пример:
+        "with Tom Hardi and Elizabeth Groth" -> ["Tom Hardi", "Elizabeth Groth"]
+        "film with Roman Shechin, Tom Hardi and Elizabeth Groth" 
+        -> ["Roman Shechin", "Tom Hardi", "Elizabeth Groth"]
+    """
+    # Находим всю часть текста после 'with'
+    match = re.search(r'with\s+(.*)', text, re.IGNORECASE)
+    if not match:
+        return []
+    
+    actors_part = match.group(1)
+    
+    # Разделяем актеров по запятым и 'and'
+    actors = re.split(r',\s*|\s+and\s+', actors_part)
+    
+    # Очищаем и проверяем каждое имя
+    result = []
+    for actor in actors:
+        actor = actor.strip()
+        if re.match(r'^[A-Z][a-z]+\s+[A-Z][a-z]+', actor):
+            result.append(actor)
+    
+    return result
+
+@app.route('/api/ml/recommendations', methods=['POST'])
+def get_ml_recommendations():
+    data = request.get_json()
+    
+    # Проверка обязательных полей в запросе
+    if not data or 'description' not in data or 'genres' not in data or 'user_id' not in data:
+        return jsonify({'error': 'Description, genres and user_id are required'}), 400
+    
+    try:
+        # Получаем параметры из запроса
+        user_id = data['user_id']
+        description = data['description']
+        genres = [g.strip() for g in data['genres'].split(',')]
+        actors = extract_actors(description)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # 1. Получаем похожие фильмы пользователя
+        cursor.execute("""
+            SELECT overview 
+            FROM similar_movies 
+            WHERE user_id = ? 
+            AND overview IS NOT NULL 
+            AND overview != ''
+        """, (user_id,))
+        similar_movies = [row[0] for row in cursor.fetchall()]
+        
+        # 2. Получаем фильмы по жанрам
+        query = """
+            SELECT id, title, overview, genre, score, crew 
+            FROM movies 
+            WHERE genre LIKE ? 
+            AND overview IS NOT NULL 
+            AND overview != ''
+        """
+        params = [f"%{genres[0]}%"]
+        
+        cursor.execute(query, params)
+        movies = cursor.fetchall()
+        
+        if not movies:
+            return jsonify({'error': 'No movies found with specified genres'}), 404
+        
+        # Фильтрация по актерам
+        if actors:
+            filtered_movies = []
+            for movie in movies:
+                try:
+                    crew_data = json.loads(movie['crew']) if movie['crew'] else {}
+                    movie_actors = crew_data.get('Actors', '').split(', ') if 'Actors' in crew_data else []
+                    if any(actor in movie_actors for actor in actors):
+                        filtered_movies.append(movie)
+                except json.JSONDecodeError:
+                    continue
+                    
+            if not filtered_movies:
+                return jsonify({'error': 'No movies found with specified actors'}), 404
+            movies = filtered_movies
+        
+        # 3. Подготовка текстов для сравнения
+        target_texts = [description] + similar_movies
+        movie_overviews = [m['overview'] for m in movies]
+        
+        # 4. Получение векторных представлений
+        target_embeddings = model.encode(target_texts)
+        movie_embeddings = model.encode(movie_overviews)
+        
+        # 5. Взвешенное сравнение
+        weights = [1.0] + [0.5] * len(similar_movies)
+        weighted_similarities = []
+        
+        for i, embedding in enumerate(target_embeddings):
+            sim = cosine_similarity([embedding], movie_embeddings)[0]
+            weighted_sim = sim * weights[i]
+            weighted_similarities.append(weighted_sim)
+        
+        # 6. Усреднение результатов
+        avg_similarities = np.mean(weighted_similarities, axis=0)
+        
+        # 7. Бонус за совпадение актеров
+        if actors:
+            for i, movie in enumerate(movies):
+                try:
+                    crew_data = json.loads(movie['crew']) if movie['crew'] else {}
+                    movie_actors = crew_data.get('Actors', '').split(', ') if 'Actors' in crew_data else []
+                    actor_count = sum(1 for actor in actors if actor in movie_actors)
+                    if actor_count > 0:
+                        avg_similarities[i] += actor_count * 0.1
+                except json.JSONDecodeError:
+                    continue
+        
+        # 8. Формирование рекомендаций
+        recommendations = []
+        for i in np.argsort(avg_similarities)[-20:][::-1]:
+            movie = movies[i]
+            matched_actors = []
+            if actors:
+                try:
+                    crew_data = json.loads(movie['crew']) if movie['crew'] else {}
+                    movie_actors = crew_data.get('Actors', '').split(', ') if 'Actors' in crew_data else []
+                    matched_actors = [actor for actor in actors if actor in movie_actors]
+                except json.JSONDecodeError:
+                    pass
+            
+            recommendations.append({
+                'id': movie['id'],
+                'title': movie['title'],
+                'overview': movie['overview'],
+                'genre': movie['genre'],
+                'score': movie['score'],
+                'similarity_score': float(avg_similarities[i]),
+                'matched_actors': matched_actors
+            })
+        
+        return jsonify(recommendations), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 def get_db():
     conn = sqlite3.connect(app.config['DATABASE'])
