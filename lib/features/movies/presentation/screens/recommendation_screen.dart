@@ -330,6 +330,25 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                       ),
                     ),
 
+                    const SizedBox(height: 16),
+
+                    // Переключатель для ML-рекомендаций
+                    Row(
+                      children: [
+                        const Text(
+                          'Использовать ML-рекомендации:',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        const Spacer(),
+                        Switch(
+                          value: movieProvider.useMlRecommendations,
+                          onChanged: (value) {
+                            movieProvider.toggleMlRecommendations();
+                          },
+                        ),
+                      ],
+                    ),
+
                     const SizedBox(height: 24),
 
                     // Кнопка для получения рекомендаций

@@ -5,12 +5,14 @@ import 'package:movie_helper/features/movies/domain/usecases/get_recommendation_
 import 'package:movie_helper/features/movies/domain/usecases/search_movie_use_case.dart';
 import '../data/datasources/movie_remote_datasource.dart';
 import '../data/datasources/similar_movies_datasource.dart';
+import '../data/datasources/ml_recommendations_datasource.dart';
 import '../data/repositories/movie_repository_impl.dart';
 import '../domain/repositories/movie_repository.dart';
 import '../domain/usecases/get_genres_use_case.dart';
 import '../domain/usecases/get_user_similar_movies_use_case.dart';
 import '../domain/usecases/add_similar_movie_use_case.dart';
 import '../domain/usecases/remove_similar_movie_use_case.dart';
+import '../domain/usecases/get_ml_recommendations_use_case.dart';
 import '../presentation/providers/movie_provider.dart';
 
 final getIt = GetIt.instance;
@@ -25,11 +27,16 @@ void setupDependencies() {
     () => SimilarMoviesDataSource(),
   );
 
+  getIt.registerLazySingleton<MlRecommendationsDataSource>(
+    () => MlRecommendationsDataSource(),
+  );
+
   // Repositories
   getIt.registerLazySingleton<MovieRepository>(
     () => MovieRepositoryImpl(
       remoteDataSource: getIt(),
       similarMoviesDataSource: getIt(),
+      mlRecommendationsDataSource: getIt(),
     ),
   );
 
@@ -52,6 +59,9 @@ void setupDependencies() {
   getIt.registerLazySingleton<RemoveSimilarMovieUseCase>(
     () => RemoveSimilarMovieUseCase(getIt()),
   );
+  getIt.registerLazySingleton<GetMlRecommendationsUseCase>(
+    () => GetMlRecommendationsUseCase(getIt()),
+  );
 
   // Providers
   getIt.registerFactory<MovieProvider>(
@@ -67,6 +77,7 @@ void setupDependencies() {
         getUserSimilarMoviesUseCase: getIt(),
         addSimilarMovieUseCase: getIt(),
         removeSimilarMovieUseCase: getIt(),
+        getMlRecommendationsUseCase: getIt(),
         userId: userId,
         authProvider: authProvider,
       );
