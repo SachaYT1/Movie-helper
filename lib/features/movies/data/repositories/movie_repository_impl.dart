@@ -269,38 +269,106 @@ class MovieRepositoryImpl implements MovieRepository {
         genres: genres,
       );
 
-      final List<Movie> recommendations = [];
+      final Map<String, Movie> uniqueMovies = {};
 
-      for (var movieData in mlRecommendationsData) {
+      final moviesToProcess = mlRecommendationsData.length > 15
+          ? mlRecommendationsData.sublist(0, 15)
+          : mlRecommendationsData;
+
+      for (var movieData in moviesToProcess) {
+        if (uniqueMovies.length >= 10) {
+          break;
+        }
+
         try {
-          // Convert ML API recommendation to Movie entity
-          final movie = Movie(
-            id: movieData['id'] ?? 0,
-            imdbId: movieData['imdb_id'] ?? '',
-            title: movieData['title'] ?? '',
-            overview: movieData['overview'] ?? '',
-            posterPath: '', // We'll need to fetch this separately if needed
-            genres: (movieData['genre'] as String?)?.split(', ') ?? [],
-            voteAverage: (movieData['score'] as num?)?.toDouble() ?? 0.0,
-            releaseDate: '',
-            year: '',
-            director: '',
-            actors: (movieData['matched_actors'] as List<dynamic>?)
-                    ?.map((actor) => actor.toString())
-                    ?.join(', ') ??
-                '',
-          );
+          final String imdbId =
+              movieData['imdbID'] ?? movieData['imdb_id'] ?? '';
+          final String title = movieData['title'] ?? '';
 
-          recommendations.add(movie);
+          if (imdbId.isNotEmpty) {
+            if (uniqueMovies.containsKey(imdbId)) {
+              continue;
+            }
 
-          // If we need posters, we could fetch them here using the OMDB API
-          // but that might slow down the response
+            final details = await remoteDataSource.getMovieDetails(imdbId);
+            if (details['Response'] == 'True') {
+              final movie = MovieModel.fromJson(details);
+              uniqueMovies[imdbId] = movie;
+            }
+          } else if (title.isNotEmpty) {
+            final searchResponse = await remoteDataSource.searchMovies(title);
+
+            if (searchResponse['Response'] == 'True' &&
+                searchResponse['Search'] != null) {
+              // Take the first result that matches the title exactly or closely
+              bool foundMatch = false;
+              for (var item in searchResponse['Search']) {
+                final currentImdbId = item['imdbID'];
+
+                if (uniqueMovies.containsKey(currentImdbId)) {
+                  foundMatch = true;
+                  break;
+                }
+
+                if (item['Title'].toLowerCase() == title.toLowerCase() ||
+                    item['Title'].toLowerCase().contains(title.toLowerCase())) {
+                  final details =
+                      await remoteDataSource.getMovieDetails(currentImdbId);
+                  if (details['Response'] == 'True') {
+                    final movie = MovieModel.fromJson(details);
+                    uniqueMovies[currentImdbId] = movie;
+                    foundMatch = true;
+                    break; // Found a match, move to next movie
+                  }
+                }
+              }
+
+              // If no exact match was found but we have results, use the first one
+              if (!foundMatch && searchResponse['Search'].isNotEmpty) {
+                final currentImdbId = searchResponse['Search'][0]['imdbID'];
+
+                if (!uniqueMovies.containsKey(currentImdbId)) {
+                  final details =
+                      await remoteDataSource.getMovieDetails(currentImdbId);
+                  if (details['Response'] == 'True') {
+                    final movie = MovieModel.fromJson(details);
+                    uniqueMovies[currentImdbId] = movie;
+                  }
+                }
+              }
+            } else {
+              if (!uniqueMovies.containsKey('title:$title')) {
+                final movie = Movie(
+                  id: movieData['id'] ?? 0,
+                  imdbId: '',
+                  title: title,
+                  overview: movieData['overview'] ?? '',
+                  posterPath:
+                      'https://via.placeholder.com/300x450?text=No+Poster',
+                  genres: (movieData['genre'] as String?)?.split(', ') ?? [],
+                  voteAverage: (movieData['score'] as num?)?.toDouble() ?? 0.0,
+                  releaseDate: '',
+                  year: '',
+                  director: '',
+                  actors: (movieData['matched_actors'] as List<dynamic>?)
+                          ?.map((actor) => actor.toString())
+                          .join(', ') ??
+                      '',
+                );
+                uniqueMovies['title:$title'] = movie;
+              }
+            }
+          } else {
+            // Skip movies without title or IMDb ID
+            continue;
+          }
         } catch (e) {
           print('Error mapping ML recommendation to Movie: $e');
         }
       }
 
-      return recommendations;
+      print('Final recommendations count: ${uniqueMovies.length}');
+      return uniqueMovies.values.toList();
     } catch (e) {
       print('Failed to get ML recommendations: $e');
       throw Exception('Failed to get ML recommendations: $e');
