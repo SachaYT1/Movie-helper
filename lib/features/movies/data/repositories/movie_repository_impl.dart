@@ -5,15 +5,18 @@ import '../../domain/repositories/movie_repository.dart';
 import '../../domain/entities/movie.dart';
 import '../datasources/movie_remote_datasource.dart';
 import '../datasources/similar_movies_datasource.dart';
+import '../datasources/ml_recommendations_datasource.dart';
 import '../models/movie_model.dart';
 
 class MovieRepositoryImpl implements MovieRepository {
   final MovieRemoteDataSource remoteDataSource;
   final SimilarMoviesDataSource similarMoviesDataSource;
+  final MlRecommendationsDataSource mlRecommendationsDataSource;
 
   MovieRepositoryImpl({
     required this.remoteDataSource,
     required this.similarMoviesDataSource,
+    required this.mlRecommendationsDataSource,
   });
 
   @override
@@ -246,6 +249,61 @@ class MovieRepositoryImpl implements MovieRepository {
       await similarMoviesDataSource.removeSimilarMovie(userId, movieId);
     } catch (e) {
       throw Exception('Failed to remove similar movie: $e');
+    }
+  }
+
+  @override
+  Future<List<Movie>> getMlRecommendations({
+    required int userId,
+    required String description,
+    required List<String> genres,
+  }) async {
+    try {
+      print(
+          'Getting ML recommendations for user $userId with genres: $genres, description: $description');
+
+      final mlRecommendationsData =
+          await mlRecommendationsDataSource.getMlRecommendations(
+        userId: userId,
+        description: description,
+        genres: genres,
+      );
+
+      final List<Movie> recommendations = [];
+
+      for (var movieData in mlRecommendationsData) {
+        try {
+          // Convert ML API recommendation to Movie entity
+          final movie = Movie(
+            id: movieData['id'] ?? 0,
+            imdbId: movieData['imdb_id'] ?? '',
+            title: movieData['title'] ?? '',
+            overview: movieData['overview'] ?? '',
+            posterPath: '', // We'll need to fetch this separately if needed
+            genres: (movieData['genre'] as String?)?.split(', ') ?? [],
+            voteAverage: (movieData['score'] as num?)?.toDouble() ?? 0.0,
+            releaseDate: '',
+            year: '',
+            director: '',
+            actors: (movieData['matched_actors'] as List<dynamic>?)
+                    ?.map((actor) => actor.toString())
+                    ?.join(', ') ??
+                '',
+          );
+
+          recommendations.add(movie);
+
+          // If we need posters, we could fetch them here using the OMDB API
+          // but that might slow down the response
+        } catch (e) {
+          print('Error mapping ML recommendation to Movie: $e');
+        }
+      }
+
+      return recommendations;
+    } catch (e) {
+      print('Failed to get ML recommendations: $e');
+      throw Exception('Failed to get ML recommendations: $e');
     }
   }
 }

@@ -9,6 +9,7 @@ import 'package:movie_helper/features/movies/domain/usecases/get_genres_use_case
 import 'package:movie_helper/features/movies/domain/usecases/get_user_similar_movies_use_case.dart';
 import 'package:movie_helper/features/movies/domain/usecases/add_similar_movie_use_case.dart';
 import 'package:movie_helper/features/movies/domain/usecases/remove_similar_movie_use_case.dart';
+import 'package:movie_helper/features/movies/domain/usecases/get_ml_recommendations_use_case.dart';
 
 class MovieProvider extends ChangeNotifier {
   final SearchMoviesUseCase _searchMoviesUseCase;
@@ -17,6 +18,7 @@ class MovieProvider extends ChangeNotifier {
   final GetUserSimilarMoviesUseCase _getUserSimilarMoviesUseCase;
   final AddSimilarMovieUseCase _addSimilarMovieUseCase;
   final RemoveSimilarMovieUseCase _removeSimilarMovieUseCase;
+  final GetMlRecommendationsUseCase _getMlRecommendationsUseCase;
   final AuthProvider _authProvider;
 
   final int? userId;
@@ -28,6 +30,7 @@ class MovieProvider extends ChangeNotifier {
   List<String> _selectedGenres = [];
   bool _isLoading = false;
   String _error = '';
+  bool _useMlRecommendations = true; // По умолчанию используем ML рекомендации
 
   // Геттеры
   List<Movie> get recommendedMovies => _recommendedMovies;
@@ -37,6 +40,7 @@ class MovieProvider extends ChangeNotifier {
   List<String> get selectedGenres => _selectedGenres;
   bool get isLoading => _isLoading;
   String get error => _error;
+  bool get useMlRecommendations => _useMlRecommendations;
 
   MovieProvider({
     required SearchMoviesUseCase searchMoviesUseCase,
@@ -45,6 +49,7 @@ class MovieProvider extends ChangeNotifier {
     required GetUserSimilarMoviesUseCase getUserSimilarMoviesUseCase,
     required AddSimilarMovieUseCase addSimilarMovieUseCase,
     required RemoveSimilarMovieUseCase removeSimilarMovieUseCase,
+    required GetMlRecommendationsUseCase getMlRecommendationsUseCase,
     required AuthProvider authProvider,
     this.userId,
   })  : _searchMoviesUseCase = searchMoviesUseCase,
@@ -53,6 +58,7 @@ class MovieProvider extends ChangeNotifier {
         _getUserSimilarMoviesUseCase = getUserSimilarMoviesUseCase,
         _addSimilarMovieUseCase = addSimilarMovieUseCase,
         _removeSimilarMovieUseCase = removeSimilarMovieUseCase,
+        _getMlRecommendationsUseCase = getMlRecommendationsUseCase,
         _authProvider = authProvider {
     // Listen to auth changes
     _authProvider.addListener(_onAuthChanged);
@@ -131,22 +137,40 @@ class MovieProvider extends ChangeNotifier {
     }
   }
 
-  // Получение рекомендаций
+  // Переключение между ML-рекомендациями и обычными
+  void toggleMlRecommendations() {
+    _useMlRecommendations = !_useMlRecommendations;
+    notifyListeners();
+  }
+
+  // Получение рекомендаций с использованием ML или обычный метод
   Future<void> getRecommendations({
     List<String>? similarMovieIds,
     List<String>? genres,
     String? query,
   }) async {
     _setLoading(true);
+
     try {
-      _recommendedMovies = await _getRecommendationsUseCase.execute(
-        similarMovieIds:
-            similarMovieIds ?? _similarMovies.map((m) => m.imdbId).toList(),
-        genres: genres ?? _selectedGenres,
-        query: query,
-      );
+      if (_useMlRecommendations && _authProvider.user?.id != null) {
+        // Use ML recommendations if enabled and user is authenticated
+        _recommendedMovies = await _getMlRecommendationsUseCase.execute(
+          userId: _authProvider.user!.id!,
+          description: query ?? '',
+          genres: genres ?? _selectedGenres,
+        );
+      } else {
+        // Use regular recommendations otherwise
+        _recommendedMovies = await _getRecommendationsUseCase.execute(
+          similarMovieIds:
+              similarMovieIds ?? _similarMovies.map((m) => m.imdbId).toList(),
+          genres: genres ?? _selectedGenres,
+          query: query,
+        );
+      }
       _setError('');
     } catch (e) {
+      print('Error getting recommendations: $e');
       _setError('Ошибка при получении рекомендаций: $e');
     } finally {
       _setLoading(false);

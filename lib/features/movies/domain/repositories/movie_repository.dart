@@ -15,4 +15,11 @@ abstract class MovieRepository {
   Future<List<Movie>> getUserSimilarMovies(int userId);
   Future<void> addSimilarMovie(int userId, Movie movie);
   Future<void> removeSimilarMovie(int userId, int movieId);
+
+  // New ML recommendations method
+  Future<List<Movie>> getMlRecommendations({
+    required int userId,
+    required String description,
+    required List<String> genres,
+  });
 }
