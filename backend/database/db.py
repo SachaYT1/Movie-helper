@@ -16,6 +16,15 @@ def init_db():
     """)
 
     conn.execute("""
+    CREATE TABLE IF NOT EXISTS feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER UNIQUE NOT NULL,
+        grade INTEGER,
+        text TEXT
+    )
+    """)
+
+    conn.execute("""
     CREATE TABLE IF NOT EXISTS similar_movies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
