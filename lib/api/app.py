@@ -6,19 +6,53 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 import json
 from sklearn.metrics.pairwise import cosine_similarity
+import requests
+from threading import Thread
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
 app = Flask(__name__)
 app.config['DATABASE'] = Path(__file__).parent.parent.parent / "backend" / "database" / "movies.db"
-
-
+app.config['SEND_TELEGRAM_NOTIFICATIONS'] = True
+app.config['TELEGRAM_CHAT_ID'] = [922279354, 471661173]
+app.config['TELEGRAM_BOT_TOKEN'] = '7578670137:AAEqEP36zQ-aAFaDm7uHRyjkfIGkPC8Gqvg'
+           
 print(app.config['DATABASE'])
 def get_db():
     print(app.config['DATABASE'])
     conn = sqlite3.connect(app.config['DATABASE'])
     conn.row_factory = sqlite3.Row
     return conn
+
+def send_telegram_notification(feedback_data):
+    """Отправка уведомления в Telegram"""
+    if not app.config['SEND_TELEGRAM_NOTIFICATIONS']:
+        return
+    
+    # Проверяем наличие обязательных полей
+    if not isinstance(feedback_data, dict) or 'user_id' not in feedback_data or 'grade' not in feedback_data:
+        app.logger.error("Invalid feedback data format")
+        return
+        
+    message = (
+        "📝 Новый отзыв!\n"
+        f"Пользователь ID: {feedback_data['user_id']}\n"
+        f"Оценка: {'★' * feedback_data['grade']}\n"
+        f"Текст: {feedback_data.get('text', 'Без текста')}"
+    )
+    
+    try:
+        for id in app.config['TELEGRAM_CHAT_ID']:
+            requests.post(
+                f"https://api.telegram.org/bot{app.config['TELEGRAM_BOT_TOKEN']}/sendMessage",
+                json={
+                    'chat_id': id,
+                    'text': message,
+                    'parse_mode': 'Markdown'
+                }
+            )
+    except Exception as e:
+        app.logger.error(f"Ошибка отправки в Telegram: {e}")
 
 def extract_actors(text):
     """
@@ -368,6 +402,69 @@ def get_similar_movies(user_id):
     finally:
         if 'conn' in locals():
             conn.close()
+
+
+@app.route('/api/feedback', methods=['POST'])
+def add_feedback():
+    """Endpoint для добавления отзыва с отправкой в Telegram"""
+    data = request.get_json()
+    
+    # Валидация данных
+    if not data or 'user_id' not in data or 'grade' not in data:
+        return jsonify({'error': 'user_id and grade are required fields'}), 400
+    
+    try:
+        grade = int(data['grade'])
+        if not (1 <= grade <= 5):
+            return jsonify({'error': 'grade must be between 1 and 5'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'grade must be an integer value'}), 400
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Проверка существования пользователя
+        cursor.execute("SELECT 1 FROM users WHERE user_id = ?", (data['user_id'],))
+        if not cursor.fetchone():
+            return jsonify({'error': 'specified user not found'}), 404
+        
+        # Вставка отзыва с возвратом всех полей
+        cursor.execute("""
+            INSERT INTO feedback (user_id, grade, text)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) 
+            DO UPDATE SET 
+                grade = excluded.grade,
+                text = excluded.text
+            RETURNING id, user_id, grade, text
+        """, (data['user_id'], grade, data.get('text', '')))
+        
+        # Получаем полные данные добавленного отзыва
+        feedback = cursor.fetchone()
+        conn.commit()
+        
+        # Преобразуем в словарь
+        feedback_dict = dict(feedback)
+        
+        # Отправка уведомления в Telegram
+        if app.config['SEND_TELEGRAM_NOTIFICATIONS']:
+            try:
+                Thread(target=send_telegram_notification, args=(feedback_dict,)).start()
+            except Exception as e:
+                app.logger.error(f"error: {e}")
+        
+        return jsonify({
+            'message': 'Отзыв добавлен',
+            'feedback_id': feedback_dict['id']
+        }), 201
+        
+    except sqlite3.Error as e:
+        return jsonify({'error': f'database error: {str(e)}'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True)

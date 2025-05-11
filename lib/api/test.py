@@ -10,6 +10,7 @@ class BaseTestCase(unittest.TestCase):
         # Настройка тестового приложения
         app.config['TESTING'] = True
         app.config['DATABASE'] = Path(__file__).parent / "test_movies.db"
+        
         cls.client = app.test_client()
         
         # Инициализация тестовой БД
@@ -464,6 +465,148 @@ class TestMLRecommendations(BaseTestCase):
                 matched = set(inception_movie['matched_actors'])
                 self.assertTrue({'Leonardo DiCaprio', 'Ellen Page'}.issubset(matched),
                               "Both actors should be matched")
+
+class FeedbackAPITestCase(unittest.TestCase):
+    def setUp(self):
+        """Initialize test DB and client"""
+        self.db_path = Path(__file__).parent / "test_movies.db"
+        app.config['DATABASE'] = self.db_path
+        app.config['TESTING'] = True
+        app.config['SEND_TELEGRAM_NOTIFICATIONS'] = True
+        self.client = app.test_client()
+        
+        conn = sqlite3.connect(self.db_path)
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                login TEXT UNIQUE,
+                password TEXT
+            );
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER UNIQUE NOT NULL,
+                grade INTEGER,
+                text TEXT
+            );
+        """)
+        conn.commit()
+        conn.close()
+        
+        with app.app_context():
+            conn = sqlite3.connect(self.db_path)
+            conn.execute("INSERT INTO users (user_id, login) VALUES (1, 'testuser')")
+            conn.commit()
+            conn.close()
+
+    def tearDown(self):
+        """Clean up test DB"""
+        if self.db_path.exists():
+            self.db_path.unlink()
+
+    def test_submit_valid_feedback(self):
+        """Test successful feedback submission"""
+        test_data = {
+            "user_id": 1,
+            "grade": 5,
+            "text": "Excellent recommendations!"
+        }
+        
+        response = self.client.post(
+            '/api/feedback',
+            data=json.dumps(test_data),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('feedback_id', json.loads(response.data))
+        
+        with app.app_context():
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM feedback WHERE user_id = 1")
+            record = cursor.fetchone()
+            conn.close()
+            
+            self.assertIsNotNone(record)
+            self.assertEqual(record[2], 5) 
+            self.assertEqual(record[3], "Excellent recommendations!")
+
+    def test_feedback_missing_required_fields(self):
+        """Test missing user_id or grade"""
+        test_cases = [
+            ({"grade": 5}, "user_id"),
+            ({"user_id": 1}, "grade"),
+            ({}, "user_id and grade")
+        ]
+        
+        for data, missing_field in test_cases:
+            response = self.client.post(
+                '/api/feedback',
+                data=json.dumps(data),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            self.assertIn(missing_field, json.loads(response.data)['error'].lower())
+
+    def test_invalid_grade_range(self):
+        """Test grade outside 1-5 range"""
+        test_cases = [0, 6, -1]
+        
+        for grade in test_cases:
+            response = self.client.post(
+                '/api/feedback',
+                data=json.dumps({"user_id": 1, "grade": grade}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("between 1 and 5", json.loads(response.data)['error'])
+
+    def test_nonexistent_user(self):
+        """Test feedback for non-existent user"""
+        response = self.client.post(
+            '/api/feedback',
+            data=json.dumps({"user_id": 999, "grade": 3}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("not found", json.loads(response.data)['error'].lower())
+
+    def test_feedback_update_existing(self):
+        """Test updating existing feedback"""
+        
+        self.client.post(
+            '/api/feedback',
+            data=json.dumps({"user_id": 1, "grade": 3}),
+            content_type='application/json'
+        )
+        
+    
+        update_data = {
+            "user_id": 1,
+            "grade": 5,
+            "text": "Changed my mind, these are great!"
+        }
+        
+        response = self.client.post(
+            '/api/feedback',
+            data=json.dumps(update_data),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 201)
+        
+        with app.app_context():
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT grade, text FROM feedback WHERE user_id = 1")
+            grade, text = cursor.fetchone()
+            conn.close()
+            
+            self.assertEqual(grade, 5)
+            self.assertEqual(text, "Changed my mind, these are great!")
 
 if __name__ == '__main__':
     unittest.main()
