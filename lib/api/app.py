@@ -8,6 +8,8 @@ import json
 from sklearn.metrics.pairwise import cosine_similarity
 import requests
 from threading import Thread
+from passlib.hash import bcrypt
+
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
@@ -210,10 +212,12 @@ def get_ml_recommendations():
         if 'conn' in locals():
             conn.close()
 
+
+
 @app.route('/api/users', methods=['POST'])
 def create_user():
     data = request.get_json()
-    
+    hashed_password = bcrypt.hash(data['password'])
     if not data or 'login' not in data or 'password' not in data:
         return jsonify({'error': 'Login and password are required'}), 400
     
@@ -225,7 +229,7 @@ def create_user():
         conn = get_db()
         conn.execute(
             "INSERT INTO users (login, password, email) VALUES (?, ?, ?)",
-            (login, password, email)
+            (login, hashed_password, email)
         )
         conn.commit()
         return jsonify({'message': 'User created successfully'}), 201
@@ -234,7 +238,6 @@ def create_user():
     finally:
         if 'conn' in locals():
             conn.close()
-
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -249,23 +252,30 @@ def login():
     try:
         conn = get_db()
         cursor = conn.cursor()
+        
         cursor.execute(
-            "SELECT user_id, login, email FROM users WHERE login = ? AND password = ?",
-            (login, password)
+            "SELECT user_id, login, email, password FROM users WHERE login = ?",
+            (login,)
         )
         user = cursor.fetchone()
         
         if user:
-            return jsonify({
-                'message': 'Login successful',
-                'user_id': user['user_id'],
-                'login': user['login'],
-                'email': user['email']
-            }), 200
+            if bcrypt.verify(password, user['password']):
+                return jsonify({
+                    'message': 'Login successful',
+                    'user_id': user['user_id'],
+                    'login': user['login'],
+                    'email': user['email']
+                }), 200
+            else:
+                return jsonify({'error': 'Invalid login or password'}), 401
         else:
             return jsonify({'error': 'Invalid login or password'}), 401
+            
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    
+        app.logger.error(f"Login error: {str(e)}")
+        return jsonify({'error': 'Authentication failed'}), 500
     finally:
         if 'conn' in locals():
             conn.close()
