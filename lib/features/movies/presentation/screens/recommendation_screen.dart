@@ -6,6 +6,7 @@ import 'package:movie_helper/features/movies/presentation/providers/movie_provid
 import 'package:movie_helper/features/movies/presentation/widgets/movie_card.dart';
 import 'package:movie_helper/features/movies/presentation/screens/movie_details_screen.dart';
 import 'package:movie_helper/features/movies/presentation/screens/search_screen.dart';
+import 'package:movie_helper/features/movies/presentation/providers/tutorial_service.dart';
 
 class RecommendationScreen extends StatefulWidget {
   const RecommendationScreen({Key? key}) : super(key: key);
@@ -17,6 +18,17 @@ class RecommendationScreen extends StatefulWidget {
 class _RecommendationScreenState extends State<RecommendationScreen> {
   final TextEditingController _promptController = TextEditingController();
   bool _isLoading = false;
+
+  // Keys for tutorial coach mark
+  final GlobalKey _addMovieKey = GlobalKey();
+  final GlobalKey _genresKey = GlobalKey();
+  final GlobalKey _promptKey = GlobalKey();
+
+  // ScrollController for auto-scrolling during tutorial
+  final ScrollController _scrollController = ScrollController();
+
+  // Tutorial service
+  late TutorialService _tutorialService;
 
   @override
   void initState() {
@@ -32,13 +44,25 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
       if (authProvider.isAuthenticated && authProvider.user?.id != null) {
         movieProvider.loadSimilarMoviesFromBackend();
       }
+
+      // Initialize tutorial service
+      _tutorialService = TutorialService(
+        targetKeys: [_addMovieKey, _genresKey, _promptKey],
+        scrollController: _scrollController,
+        context: context,
+      );
     });
   }
 
   @override
   void dispose() {
     _promptController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _showTutorial() {
+    _tutorialService.startTutorial();
   }
 
   void _getRecommendations() {
@@ -77,11 +101,11 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
       appBar: AppBar(
         title: const Text('Рекомендации фильмов'),
         actions: [
+          // Question mark button for tutorial
           IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.pushNamed(context, '/profile');
-            },
+            icon: const Icon(Icons.help_outline),
+            onPressed: _showTutorial,
+            tooltip: 'Руководство',
           ),
         ],
       ),
@@ -96,6 +120,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
           return Stack(
             children: [
               SingleChildScrollView(
+                controller: _scrollController,
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,6 +241,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
 
                     // Кнопка для добавления похожих фильмов
                     SizedBox(
+                      key: _addMovieKey,
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () {
@@ -278,24 +304,27 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                     const SizedBox(height: 16),
 
                     // Список жанров
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: movieProvider.genres.map((genre) {
-                        final isSelected =
-                            movieProvider.selectedGenres.contains(genre.name);
-                        return FilterChip(
-                          label: Text(genre.name),
-                          selected: isSelected,
-                          onSelected: (_) =>
-                              movieProvider.toggleGenre(genre.name),
-                          // backgroundColor: Colors.grey[200],
-                          selectedColor: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.2),
-                        );
-                      }).toList(),
+                    Container(
+                      key: _genresKey,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: movieProvider.genres.map((genre) {
+                          final isSelected =
+                              movieProvider.selectedGenres.contains(genre.name);
+                          return FilterChip(
+                            label: Text(genre.name),
+                            selected: isSelected,
+                            onSelected: (_) =>
+                                movieProvider.toggleGenre(genre.name),
+                            // backgroundColor: Colors.grey[200],
+                            selectedColor: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.2),
+                          );
+                        }).toList(),
+                      ),
                     ),
 
                     const SizedBox(height: 24),
@@ -318,14 +347,17 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                     const SizedBox(height: 16),
 
                     // Поле для ввода описания
-                    TextField(
-                      controller: _promptController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText:
-                            'Например: "Хочу посмотреть что-то захватывающее с неожиданной концовкой"',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    Container(
+                      key: _promptKey,
+                      child: TextField(
+                        controller: _promptController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Например: "Хочу посмотреть что-то захватывающее с неожиданной концовкой"',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
@@ -393,7 +425,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
-                              childAspectRatio: 0.45,
+                              childAspectRatio: 0.5,
                               crossAxisSpacing: 10,
                               mainAxisSpacing: 16,
                             ),
@@ -402,7 +434,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                               final movie =
                                   movieProvider.recommendedMovies[index];
                               return SizedBox(
-                                height: 280,
+                                height: 230,
                                 child: MovieCard(
                                   movie: movie,
                                   onTap: () {
