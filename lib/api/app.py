@@ -8,7 +8,7 @@ import json
 from sklearn.metrics.pairwise import cosine_similarity
 import requests
 from threading import Thread
-from passlib.hash import bcrypt
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -212,20 +212,23 @@ def get_ml_recommendations():
         if 'conn' in locals():
             conn.close()
 
-
-
 @app.route('/api/users', methods=['POST'])
 def create_user():
     data = request.get_json()
-    hashed_password = bcrypt.hash(data['password'])
-    if not data or 'login' not in data or 'password' not in data:
-        return jsonify({'error': 'Login and password are required'}), 400
     
+    # Сначала проверяем наличие всех обязательных полей
+    if not data or 'login' not in data or 'password' not in data:
+        return jsonify({'error': 'Login, password and email are required'}), 400
+    
+    # Только после проверки получаем значения
     login = data['login']
     password = data['password']
     email = data['email']
     
     try:
+        # Хешируем пароль
+        hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
+        
         conn = get_db()
         conn.execute(
             "INSERT INTO users (login, password, email) VALUES (?, ?, ?)",
@@ -235,9 +238,14 @@ def create_user():
         return jsonify({'message': 'User created successfully'}), 201
     except sqlite3.IntegrityError:
         return jsonify({'error': 'User with this login already exists'}), 409
+    except Exception as e:
+        app.logger.error(f"User creation error: {str(e)}")
+        return jsonify({'error': 'Registration failed'}), 500
     finally:
         if 'conn' in locals():
             conn.close()
+
+
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -260,7 +268,7 @@ def login():
         user = cursor.fetchone()
         
         if user:
-            if bcrypt.verify(password, user['password']):
+            if check_password_hash(password, user['password']):
                 return jsonify({
                     'message': 'Login successful',
                     'user_id': user['user_id'],

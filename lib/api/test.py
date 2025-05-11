@@ -472,7 +472,7 @@ class FeedbackAPITestCase(unittest.TestCase):
         self.db_path = Path(__file__).parent / "test_movies.db"
         app.config['DATABASE'] = self.db_path
         app.config['TESTING'] = True
-        app.config['SEND_TELEGRAM_NOTIFICATIONS'] = True
+        app.config['SEND_TELEGRAM_NOTIFICATIONS'] = False
         self.client = app.test_client()
         
         conn = sqlite3.connect(self.db_path)
