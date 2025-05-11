@@ -159,7 +159,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                                             }
                                           });
                                         },
-                                        compact: true,
+                                        compact: false,
                                       ),
                                     ),
                                   ),
