@@ -6,6 +6,7 @@ import 'package:movie_helper/features/movies/di/dependency_injection.dart';
 import 'package:movie_helper/home_page.dart';
 import 'package:provider/provider.dart';
 import 'package:movie_helper/features/movies/presentation/providers/movie_provider.dart';
+import 'package:movie_helper/features/movies/presentation/providers/feedback_provider.dart';
 import 'package:movie_helper/features/auth/presentation/providers/auth_provider.dart';
 import 'package:movie_helper/core/routes/app_routes.dart';
 import 'package:movie_helper/features/auth/presentation/screens/login_screen.dart';
@@ -19,6 +20,9 @@ void main() {
     providers: [
       ChangeNotifierProvider(
         create: (_) => getIt<MovieProvider>(),
+      ),
+      ChangeNotifierProvider(
+        create: (_) => getIt<FeedbackProvider>(),
       ),
       ChangeNotifierProvider(
         create: (_) => auth_di.getIt<AuthProvider>(),
