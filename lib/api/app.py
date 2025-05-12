@@ -268,7 +268,7 @@ def login():
         user = cursor.fetchone()
         
         if user:
-            if check_password_hash(password, user['password']):
+            if check_password_hash(user['password'], password):
                 return jsonify({
                     'message': 'Login successful',
                     'user_id': user['user_id'],
@@ -281,7 +281,6 @@ def login():
             return jsonify({'error': 'Invalid login or password'}), 401
             
     except Exception as e:
-    
         app.logger.error(f"Login error: {str(e)}")
         return jsonify({'error': 'Authentication failed'}), 500
     finally:
