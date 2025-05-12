@@ -7,6 +7,7 @@ import 'package:movie_helper/features/movies/presentation/widgets/movie_card.dar
 import 'package:movie_helper/features/movies/presentation/screens/movie_details_screen.dart';
 import 'package:movie_helper/features/movies/presentation/screens/search_screen.dart';
 import 'package:movie_helper/features/movies/presentation/providers/tutorial_service.dart';
+import 'package:movie_helper/features/movies/presentation/widgets/rating_dialog.dart';
 
 class RecommendationScreen extends StatefulWidget {
   const RecommendationScreen({Key? key}) : super(key: key);
@@ -93,6 +94,24 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
         _isLoading = false;
       });
     });
+  }
+
+  void _showRatingDialog() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Only show dialog for authenticated users
+    if (authProvider.isAuthenticated && authProvider.user != null) {
+      showDialog(
+        context: context,
+        builder: (context) => const RatingDialog(),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Необходимо авторизоваться для отправки отзыва'),
+        ),
+      );
+    }
   }
 
   @override
@@ -450,6 +469,22 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                               );
                             },
                           ),
+
+                          // Add feedback button at the bottom of recommendations
+                          const SizedBox(height: 32),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _showRatingDialog,
+                              icon: const Icon(Icons.star_rate),
+                              label: const Text('Оставить отзыв'),
+                              style: ElevatedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                         ],
                       ),
                   ],
