@@ -70,16 +70,16 @@ class MovieCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
 
-                    // Год выпуска
-                    if (movie.year.isNotEmpty)
-                      Text(
-                        movie.year,
-                        style: TextStyle(
-                          fontSize: compact ? 10 : 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    if (!compact) const SizedBox(height: 4),
+                    // // Год выпуска
+                    // if (movie.year.isNotEmpty)
+                    //   Text(
+                    //     movie.year,
+                    //     style: TextStyle(
+                    //       fontSize: compact ? 10 : 12,
+                    //       color: Colors.grey[600],
+                    //     ),
+                    //   ),
+                    // if (!compact) const SizedBox(height: 4),
 
                     // Рейтинг - показываем только если не компактный режим или есть место
                     if (!compact || movie.year.isEmpty)
