@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:movie_helper/core/utils/logger.dart';
 
 class SimilarMoviesDataSource {
   final Dio _dio;
@@ -25,15 +26,15 @@ class SimilarMoviesDataSource {
 
   Future<void> removeSimilarMovie(int userId, int movieId) async {
     try {
-      print('Removing movie with ID: $movieId for user: $userId');
+      log.t('Removing movie with ID: $movieId for user: $userId');
       final response =
           await _dio.delete('$_baseUrl/users/$userId/similar_movies/$movieId');
-      print('Delete response: ${response.statusCode}');
+      log.d('Delete response: ${response.statusCode}');
     } catch (e) {
-      print('Error removing movie: $e');
+      log.e('Error removing movie: $e');
       if (e is DioException) {
-        print('DioError status: ${e.response?.statusCode}');
-        print('DioError data: ${e.response?.data}');
+        log.e('DioError status: ${e.response?.statusCode}');
+        log.e('DioError data: ${e.response?.data}');
       }
       rethrow;
     }

@@ -9,11 +9,11 @@ class MovieCard extends StatelessWidget {
   final bool compact;
 
   const MovieCard({
-    Key? key,
+    super.key,
     required this.movie,
     this.onTap,
     this.compact = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

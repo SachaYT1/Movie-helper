@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-
+import 'package:movie_helper/core/utils/logger.dart';
 class MlRecommendationsDataSource {
   final Dio _dio;
   final String _baseUrl;
@@ -16,14 +16,14 @@ class MlRecommendationsDataSource {
     required List<String> genres,
   }) async {
     try {
-      print('Sending request to API with:');
-      print('userId: $userId');
-      print('description: $description');
-      print('genres: ${genres.join(',')}');
+      log.d('Sending request to API with:');
+      log.d('userId: $userId');
+      log.d('description: $description');
+      log.d('genres: ${genres.join(',')}');
 
       // Правильный URL эндпоинта согласно app.py
       final url = '$_baseUrl/ml/recommendations';
-      print('Using URL: $url');
+      log.d('Using URL: $url');
 
       final response = await _dio.post(
         url,
@@ -34,21 +34,22 @@ class MlRecommendationsDataSource {
         },
       );
 
-      print('ML API response status: ${response.statusCode}');
-      print('ML API response data: ${response.data}');
+      log.d('ML API response status: ${response.statusCode}');
+      log.d('ML API response data: ${response.data}');
 
       if (response.statusCode == 200) {
         return List<Map<String, dynamic>>.from(response.data);
       } else {
+        log.e('Failed to get ML recommendations: ${response.statusMessage}');
         throw Exception(
             'Failed to get ML recommendations: ${response.statusMessage}');
       }
     } catch (e) {
-      print('Error in ML recommendations: $e');
+      log.e('Error in ML recommendations: $e');
       if (e is DioException) {
-        print('DioError type: ${e.type}');
-        print('DioError message: ${e.message}');
-        print(
+        log.e('DioError type: ${e.type}');
+        log.e('DioError message: ${e.message}');
+        log.e(
             'DioError response: ${e.response?.statusCode}, ${e.response?.data}');
       }
       rethrow;

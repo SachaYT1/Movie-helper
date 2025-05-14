@@ -2,7 +2,7 @@ import 'package:movie_helper/features/auth/data/datasources/auth_api_client.dart
 import 'package:movie_helper/features/auth/domain/entities/user.dart';
 import 'package:movie_helper/features/auth/domain/repositories/repository.dart';
 
-class AuthRepositoryImpl implements AuthRepository {
+class AuthRepositoryImpl implements AuthRepositoryWithUserData {
   final AuthApiClient apiClient;
 
   AuthRepositoryImpl({required this.apiClient});
@@ -32,6 +32,7 @@ class AuthRepositoryImpl implements AuthRepository {
     await apiClient.resetPassword(email);
   }
 
+  @override
   Future<User?> getCurrentUser() async {
     return await apiClient.getCurrentUser();
   }

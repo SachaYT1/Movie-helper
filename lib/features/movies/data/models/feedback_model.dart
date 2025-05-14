@@ -2,14 +2,10 @@ import '../../domain/entities/feedback.dart';
 
 class FeedbackModel extends Feedback {
   FeedbackModel({
-    required int userId,
-    required int grade,
-    String text = '',
-  }) : super(
-          userId: userId,
-          grade: grade,
-          text: text,
-        );
+    required super.userId,
+    required super.grade,
+    super.text,
+  });
 
   Map<String, dynamic> toJson() {
     return {

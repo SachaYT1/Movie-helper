@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:movie_helper/core/constants/app_constants.dart';
 import '../models/feedback_model.dart';
+import 'package:movie_helper/core/utils/logger.dart';
 
 class FeedbackRemoteDataSource {
   final Dio _dio;
@@ -14,30 +14,31 @@ class FeedbackRemoteDataSource {
 
   Future<bool> submitFeedback(FeedbackModel feedback) async {
     try {
-      print('Отправка отзыва на сервер: ${feedback.toJson()}');
+      log.d('Submitting feedback: ${feedback.toJson()}');
 
       final url = '$_baseUrl/feedback';
-      print('URL запроса: $url');
+      log.d('Request URL: $url');
 
       final response = await _dio.post(
         url,
         data: feedback.toJson(),
       );
 
-      print('Ответ сервера: ${response.statusCode} - ${response.data}');
+      log.d('Server response: ${response.statusCode} - ${response.data}');
 
       if (response.statusCode == 201) {
         return true;
       } else {
+        log.e('Error submitting feedback: ${response.statusMessage}');
         throw Exception(
-            'Ошибка при отправке отзыва: ${response.statusMessage}');
+            'Error submitting feedback: ${response.statusMessage}');
       }
     } catch (e) {
-      print('Ошибка при отправке отзыва: $e');
+      log.e('Error submitting feedback: $e');
       if (e is DioException) {
-        print('DioError тип: ${e.type}');
-        print('DioError сообщение: ${e.message}');
-        print('DioError ответ: ${e.response?.statusCode}, ${e.response?.data}');
+        log.e('DioError type: ${e.type}');
+        log.e('DioError message: ${e.message}');
+        log.e('DioError response: ${e.response?.statusCode}, ${e.response?.data}');
       }
       return false;
     }

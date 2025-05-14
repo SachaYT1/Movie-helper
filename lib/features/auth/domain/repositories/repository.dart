@@ -20,3 +20,11 @@ abstract class AuthRepository {
   /// Sends password reset email
   Future<void> resetPassword(String email);
 }
+
+/// Расширенный интерфейс AuthRepository, который также предоставляет
+/// метод для получения текущего авторизованного пользователя
+abstract class AuthRepositoryWithUserData extends AuthRepository {
+  /// Возвращает текущего авторизованного пользователя
+  /// Возвращает null, если пользователь не авторизован
+  Future<User?> getCurrentUser();
+}

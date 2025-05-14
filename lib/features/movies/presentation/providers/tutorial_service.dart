@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:movie_helper/core/utils/logger.dart';
 
 class TutorialService {
   late TutorialCoachMark tutorialCoachMark;
@@ -55,33 +56,36 @@ class TutorialService {
     final keyContext = key.currentContext;
     if (keyContext != null) {
       // Получаем позицию и размер виджета
-      final box = keyContext.findRenderObject() as RenderBox;
-      final position = box.localToGlobal(Offset.zero);
+      if (context.mounted) {
+        final box = keyContext.findRenderObject() as RenderBox;
+        final position = box.localToGlobal(Offset.zero);
 
-      // Рассчитываем позицию для скролла, центрируя виджет на экране
-      final screenHeight = MediaQuery.of(context).size.height;
-      final widgetHeight = box.size.height;
-      final scrollOffset =
-          position.dy - (screenHeight / 2) + (widgetHeight / 2);
+        // Рассчитываем позицию для скролла, центрируя виджет на экране
+        final screenHeight = MediaQuery.of(context).size.height;
+        final widgetHeight = box.size.height;
+        final scrollOffset =
+            position.dy - (screenHeight / 2) + (widgetHeight / 2);
 
-      // Проверяем доступность ScrollController
-      if (!scrollController.hasClients) return;
+        // Проверяем доступность ScrollController
+        if (!scrollController.hasClients) return;
 
-      // Ограничиваем скролл в пределах возможного
-      final maxScrollExtent = scrollController.position.maxScrollExtent;
-      final minScrollExtent = scrollController.position.minScrollExtent;
+        // Ограничиваем скролл в пределах возможного
+        final maxScrollExtent = scrollController.position.maxScrollExtent;
+        final minScrollExtent = scrollController.position.minScrollExtent;
 
-      final targetOffset = scrollOffset.clamp(minScrollExtent, maxScrollExtent);
+        final targetOffset =
+            scrollOffset.clamp(minScrollExtent, maxScrollExtent);
 
-      // Прокручиваем к виджету
-      await scrollController.animateTo(
-        targetOffset,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+        // Прокручиваем к виджету
+        await scrollController.animateTo(
+          targetOffset,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
 
-      // Даем время для завершения анимации
-      await Future.delayed(const Duration(milliseconds: 200));
+        // Даем время для завершения анимации
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
     }
   }
 
@@ -140,10 +144,10 @@ class TutorialService {
         opacityShadow: 0.8,
         hideSkip: false,
         onFinish: () {
-          print("Руководство завершено");
+          log.d("Руководство завершено");
         },
         onSkip: () {
-          print("Руководство пропущено");
+          log.d("Руководство пропущено");
           return true;
         });
   }

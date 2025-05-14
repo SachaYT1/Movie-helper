@@ -10,6 +10,7 @@ import 'package:movie_helper/features/movies/domain/usecases/get_user_similar_mo
 import 'package:movie_helper/features/movies/domain/usecases/add_similar_movie_use_case.dart';
 import 'package:movie_helper/features/movies/domain/usecases/remove_similar_movie_use_case.dart';
 import 'package:movie_helper/features/movies/domain/usecases/get_ml_recommendations_use_case.dart';
+import 'package:movie_helper/core/utils/logger.dart';
 
 class MovieProvider extends ChangeNotifier {
   final SearchMoviesUseCase _searchMoviesUseCase;
@@ -170,7 +171,7 @@ class MovieProvider extends ChangeNotifier {
       }
       _setError('');
     } catch (e) {
-      print('Error getting recommendations: $e');
+      log.e('Error getting recommendations', e);
       _setError('Ошибка при получении рекомендаций: $e');
     } finally {
       _setLoading(false);
@@ -179,13 +180,13 @@ class MovieProvider extends ChangeNotifier {
 
   // Методы для управления похожими фильмами
   Future<void> addSimilarMovie(Movie movie) async {
-    print(
+    log.i(
         'Adding similar movie: ${movie.title}, IMDb ID: ${movie.imdbId}, Poster: ${movie.posterPath}');
 
     if (!_similarMovies.any((m) => m.imdbId == movie.imdbId)) {
       final currentUserId = _authProvider.user?.id;
       if (currentUserId == null) {
-        print('User not authenticated, adding movie only to local list');
+        log.w('User not authenticated, adding movie only to local list');
         _similarMovies.add(movie);
         notifyListeners();
         return;
@@ -196,35 +197,35 @@ class MovieProvider extends ChangeNotifier {
 
       try {
         // First, add the movie to the backend
-        print('Adding movie to backend...');
+        log.d('Adding movie to backend...');
         await _addSimilarMovieUseCase.execute(currentUserId, movie);
-        print('Movie added to backend successfully');
+        log.i('Movie added to backend successfully');
 
         // Then reload all similar movies to get the proper DB ID and ensure all data is consistent
-        print('Reloading similar movies to get updated list with DB IDs');
+        log.d('Reloading similar movies to get updated list with DB IDs');
         final updatedMovies =
             await _getUserSimilarMoviesUseCase.execute(currentUserId);
 
         // Replace the entire list with the updated one from the backend
         _similarMovies = updatedMovies;
-        print(
+        log.i(
             'Similar movies list updated with ${_similarMovies.length} movies');
 
         _setError('');
       } catch (e) {
-        print('Error adding similar movie: $e');
+        log.e('Error adding similar movie', e);
         _setError('Ошибка при добавлении фильма: $e');
       } finally {
         _setLoading(false);
         notifyListeners();
       }
     } else {
-      print('Movie already in the similar movies list, skipping addition');
+      log.i('Movie already in the similar movies list, skipping addition');
     }
   }
 
   Future<void> removeSimilarMovie(Movie movie) async {
-    print(
+    log.i(
         'Removing movie: ${movie.title}, ID: ${movie.id}, imdbId: ${movie.imdbId}, posterPath: ${movie.posterPath}');
 
     // Store a reference to the movie before removing it
@@ -239,23 +240,23 @@ class MovieProvider extends ChangeNotifier {
     if (currentUserId != null) {
       if (movie.id > 0) {
         try {
-          print('Attempting to remove movie with ID: ${movie.id} from backend');
+          log.d('Attempting to remove movie with ID: ${movie.id} from backend');
           await _removeSimilarMovieUseCase.execute(currentUserId, movie.id);
-          print('Movie successfully removed from backend');
+          log.i('Movie successfully removed from backend');
           // Movie successfully removed, no need to add it back
         } catch (e) {
-          print('Error removing movie from backend: $e');
+          log.e('Error removing movie from backend', e);
           // If backend operation fails, add back to local list
           _similarMovies.add(movieToRemove);
           _setError('Ошибка при удалении фильма: $e');
           notifyListeners();
         }
       } else {
-        print(
+        log.w(
             'Warning: Movie ID is invalid (${movie.id}), cannot delete from backend');
       }
     } else {
-      print('User not authenticated, movie only removed from local list');
+      log.i('User not authenticated, movie only removed from local list');
     }
   }
 

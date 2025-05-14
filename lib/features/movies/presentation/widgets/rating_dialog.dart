@@ -7,9 +7,9 @@ class RatingDialog extends StatefulWidget {
   final Function? onSubmitted;
 
   const RatingDialog({
-    Key? key,
+    super.key,
     this.onSubmitted,
-  }) : super(key: key);
+  });
 
   @override
   State<RatingDialog> createState() => _RatingDialogState();

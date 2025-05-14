@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 
+import 'package:movie_helper/core/utils/logger.dart';
+
 class AuthException implements Exception {
   final String message;
   final int? statusCode;
@@ -25,6 +27,7 @@ class AuthApiClient {
   Future<UserModel> register(
       String username, String email, String password) async {
     try {
+      log.d('Registering user: $username, $email');
       final response = await client.post(
         Uri.parse('$baseUrl/api/users'),
         headers: {'Content-Type': 'application/json'},
@@ -36,8 +39,7 @@ class AuthApiClient {
       );
 
       if (response.statusCode == 201) {
-        // The API doesn't return user data, so we create a user from the provided data
-        // In a real app, it would be better if the API returned the created user
+        log.d('User registered successfully');
         final userModel = UserModel(
           username: username,
           email: email,
@@ -50,12 +52,14 @@ class AuthApiClient {
         return userModel;
       } else {
         final errorData = jsonDecode(response.body);
+        log.e('Registration failed: ${errorData['error']}');
         throw AuthException(
           errorData['error'] ?? 'Registration failed',
           statusCode: response.statusCode,
         );
       }
     } catch (e) {
+      log.e('Registration failed: ${e.toString()}');
       if (e is AuthException) rethrow;
       throw AuthException('Network error during registration: ${e.toString()}');
     }
@@ -63,6 +67,7 @@ class AuthApiClient {
 
   Future<UserModel> login(String usernameOrEmail, String password) async {
     try {
+      log.d('Logging in user: $usernameOrEmail');
       final response = await client.post(
         Uri.parse('$baseUrl/api/login'),
         headers: {'Content-Type': 'application/json'},
@@ -73,6 +78,7 @@ class AuthApiClient {
       );
 
       if (response.statusCode == 200) {
+        log.d('Login successful');
         final data = jsonDecode(response.body);
         final userModel = UserModel.fromJson(data);
 
@@ -83,6 +89,7 @@ class AuthApiClient {
         return userModel;
       } else {
         final errorData = jsonDecode(response.body);
+        log.e('Login failed: ${errorData['error']}');
         throw AuthException(
           errorData['error'] ?? 'Login failed',
           statusCode: response.statusCode,
@@ -90,12 +97,14 @@ class AuthApiClient {
       }
     } catch (e) {
       if (e is AuthException) rethrow;
+      log.e('Login failed: ${e.toString()}');
       throw AuthException('Network error during login: ${e.toString()}');
     }
   }
 
   Future<void> resetPassword(String email) async {
     try {
+      log.d('Resetting password for email: $email');
       final response = await client.post(
         Uri.parse('$baseUrl/api/reset-password'),
         headers: {'Content-Type': 'application/json'},
@@ -104,6 +113,7 @@ class AuthApiClient {
 
       if (response.statusCode != 200) {
         final errorData = jsonDecode(response.body);
+        log.e('Password reset failed: ${errorData['error']}');
         throw AuthException(
           errorData['error'] ?? 'Password reset failed',
           statusCode: response.statusCode,
@@ -111,6 +121,7 @@ class AuthApiClient {
       }
     } catch (e) {
       if (e is AuthException) rethrow;
+      log.e('Password reset failed: ${e.toString()}');
       throw AuthException(
           'Network error during password reset: ${e.toString()}');
     }
@@ -118,6 +129,7 @@ class AuthApiClient {
 
   Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
+    log.d('Checking if user is logged in');
     return prefs.containsKey('user');
   }
 
@@ -127,8 +139,10 @@ class AuthApiClient {
 
     if (userJson != null) {
       try {
+        log.d('Getting current user');
         return UserModel.fromJson(jsonDecode(userJson));
       } catch (e) {
+        log.e('Error getting current user: ${e.toString()}');
         return null;
       }
     }
@@ -137,6 +151,7 @@ class AuthApiClient {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
+    log.d('Logging out user');
     await prefs.remove('user');
   }
 }

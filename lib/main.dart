@@ -10,11 +10,15 @@ import 'package:movie_helper/features/movies/presentation/providers/feedback_pro
 import 'package:movie_helper/features/auth/presentation/providers/auth_provider.dart';
 import 'package:movie_helper/core/routes/app_routes.dart';
 import 'package:movie_helper/features/auth/presentation/screens/login_screen.dart';
+import 'package:movie_helper/core/utils/logger.dart';
 
 void main() {
   // Setup dependencies
   setupDependencies();
   auth_di.setupAuthDependencies();
+
+  // Initialize logging
+  log.i('Application starting...');
 
   runApp(MultiProvider(
     providers: [

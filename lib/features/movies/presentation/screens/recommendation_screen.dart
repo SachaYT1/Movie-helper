@@ -10,7 +10,7 @@ import 'package:movie_helper/features/movies/presentation/providers/tutorial_ser
 import 'package:movie_helper/features/movies/presentation/widgets/rating_dialog.dart';
 
 class RecommendationScreen extends StatefulWidget {
-  const RecommendationScreen({Key? key}) : super(key: key);
+  const RecommendationScreen({super.key});
 
   @override
   State<RecommendationScreen> createState() => _RecommendationScreenState();
